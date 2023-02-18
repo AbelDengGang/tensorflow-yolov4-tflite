@@ -1,5 +1,5 @@
 weights -> tensorflow:
-python save_model.py --weights ./data/yolov3.weights --output ./checkpoints/yolov3-tflite-416 --input_size 416 --model yolov3 --framework tflite
+python save_model.py --weights ./data/yolov3.weights --output ./checkpoints/yolov3-416 --input_size 416 --model yolov3
 
 demo tensorflow:
 python detect.py --weights ./checkpoints/yolov3-416 --size 416 --model yolov3 --image ./data/kite.jpg
