@@ -1,12 +1,75 @@
+tensorflow version: > 2.6.0
+pip install tensorflow-gpu==2.6.0 -i http://pypi.douban.com/simple/ --trusted-host=pypi.douban.com/simple
+
+# test with yolov3:
+
+## for tensorlfow:
 weights -> tensorflow:
 python save_model.py --weights ./data/yolov3.weights --output ./checkpoints/yolov3-416 --input_size 416 --model yolov3
 
 demo tensorflow:
 python detect.py --weights ./checkpoints/yolov3-416 --size 416 --model yolov3 --image ./data/kite.jpg
 
+
+------------------------------------------------------------------------------------------------
+## for tflite:
+weights -> tensorflow:
+python save_model.py --weights ./data/yolov3.weights --output ./checkpoints/yolov3-tflite-416 --input_size 416 --model yolov3 --framework tflite
+
 tensorflow->tflite:
 python convert_tflite.py --weights ./checkpoints/yolov3-tflite-416 --output ./checkpoints/yolov3-416.tflite
 
 demo tflite:
-python detect.py --weights ./checkpoints/yolov3-416.tflite --size 416 --model yolov4 --image ./data/kite.jpg --framework tflite
+python detect.py --weights ./checkpoints/yolov3-416.tflite --size 416 --model yolov3 --image ./data/kite.jpg --framework tflite
+
+## quantize
+int8 quantize: 
+python convert_tflite.py --weights ./checkpoints/yolov3-tflite-416 --output ./checkpoints/yolov3-416-int8.tflite --quantize_mode int8 --dataset ./data/dataset/val2017.txt
+
+int8 demo: 
+python detect.py --weights ./checkpoints/yolov3-416-int8.tflite --size 416 --model yolov3 --image ./data/kite.jpg --framework tflite
+
+mixint quantize:
+python convert_tflite.py --weights ./checkpoints/yolov3-tflite-416 --output ./checkpoints/yolov3-416-mixint.tflite --quantize_mode mixedint --dataset ./data/dataset/val2017.txt
+
+mixint demo: 
+python detect.py --weights ./checkpoints/yolov3-416-mixint.tflite --size 416 --model yolov3 --image ./data/kite.jpg --framework tflite
+
+
+***************************************************************************************
+# test with yolov4:
+
+## for tensorlfow:
+weights -> tensorflow:
+python save_model.py --weights ./data/yolov4.weights --output ./checkpoints/yolov4-416 --input_size 416 --model yolov4
+
+demo tensorflow:
+python detect.py --weights ./checkpoints/yolov4-416 --size 416 --model yolov4 --image ./data/kite.jpg
+
+
+------------------------------------------------------------------------------------------------
+## for tflite:
+weights -> tensorflow:
+python save_model.py --weights ./data/yolov4.weights --output ./checkpoints/yolov4-tflite-416 --input_size 416 --model yolov4 --framework tflite
+
+tensorflow->tflite:
+python convert_tflite.py --weights ./checkpoints/yolov4-tflite-416 --output ./checkpoints/yolov4-416.tflite
+
+demo tflite:
+python detect.py --weights ./checkpoints/yolov4-416.tflite --size 416 --model yolov4 --image ./data/kite.jpg --framework tflite
+
+## quantize
+int8 quantize: 
+python convert_tflite.py --weights ./checkpoints/yolov4-tflite-416 --output ./checkpoints/yolov4-416-int8.tflite --quantize_mode int8 --dataset ./data/dataset/val2017.txt
+
+int8 demo: 
+python detect.py --weights ./checkpoints/yolov4-416-int8.tflite --size 416 --model yolov4 --image ./data/kite.jpg --framework tflite
+
+! failed in mixint on tf 2.4.0    tf->2.6.0, keras->2.6  can run , but detect none! 
+
+mixint quantize:
+python convert_tflite.py --weights ./checkpoints/yolov4-tflite-416 --output ./checkpoints/yolov4-416-mixint.tflite --quantize_mode mixedint --dataset ./data/dataset/val2017.txt
+
+mixint demo: 
+python detect.py --weights ./checkpoints/yolov4-416-mixint.tflite --size 416 --model yolov4 --image ./data/kite.jpg --framework tflite
 
