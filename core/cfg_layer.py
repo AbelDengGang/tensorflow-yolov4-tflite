@@ -4,10 +4,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow.compat.v1 as tf
-tf.disable_v2_behavior()
+# import tensorflow.compat.v1 as tf
+# tf.disable_v2_behavior()
+
+import tensorflow as tf
 
 from reorg_layer import reorg_layer
+import common as common
 
 # From Darknet
 _LEAKY_RELU_ALPHA = 0.1
@@ -30,91 +33,7 @@ def cfg_net(B, H, W, C, net, param, weights_walker, stack, output_index, scope, 
     width = int(param["width"])
     height = int(param["height"])
     channels = int(param["channels"])
-    net = tf.placeholder(tf.float32, [None, width, height, channels], name=scope)
-    return net
-
-
-def cfg_group_convolutional(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose):
-    batch_normalize = 'batch_normalize' in param
-    size = int(param['size'])
-    filters = int(param['filters'])
-    stride = int(param['stride'])
-    groups = int(param.get('groups',1))
-    pad = 'same' if param['pad'] == '1' else 'valid'
-    activation = None
-    weight_size = int(C/groups) * filters * size * size
-
-    if "activation" in param:
-        activation = _activation_dict.get(param['activation'], None)
-
-    biases, scales, rolling_mean, rolling_variance, weights = \
-        weights_walker.get_weight(param['name'],
-                                  filters=filters,
-                                  weight_size=weight_size,
-                                  batch_normalize=batch_normalize)
-    weights = weights.reshape(filters, int(C/groups), size, size).transpose([2, 3, 1, 0])
-
-    channels_per_group = int(C/groups)
-    channels_cnt_list = [channels_per_group for i in range(groups)]
-    sub_net_list = tf.split(net,num_or_size_splits = channels_cnt_list,axis= 3)
- 
-    filters_per_group = int(filters/groups)
-    filters_cnt_list = [filters_per_group for i in range(groups)]
-    sub_weight_list = tf.split(weights,num_or_size_splits = filters_cnt_list,axis= 3)
-    sub_biases_list = tf.split(biases,num_or_size_splits = filters_cnt_list,axis= 0)
-    for group_index in range(groups):
-        conv_args = {
-            "filters": filters_per_group,
-            "kernel_size": size,
-            "strides": stride,
-            "activation": None,
-            "padding": pad,
-        }
-        if group_index > 0 :
-            conv_args.update({
-                "reuse":True
-            })
-        if const_inits:
-            conv_args.update({
-                "kernel_initializer": tf.initializers.constant(sub_weight_list[group_index].eval(session=tf.Session()), verify_shape=True),
-                "bias_initializer": tf.initializers.constant(sub_biases_list[group_index].eval(session=tf.Session()), verify_shape=True)
-            })
-
-        if batch_normalize:
-            conv_args.update({
-                "use_bias": False
-            })
-        net_sub_result = tf.layers.conv2d(sub_net_list[group_index], name=scope, **conv_args)
-        if group_index == 0:
-            net_output = net_sub_result
-        else:
-            net_output = tf.concat([net_sub_result,net_output],3)
-    
-    net = net_output
-    #print(net)
-
-    if batch_normalize:
-        batch_norm_args = {
-            "momentum": _BATCH_NORM_MOMENTUM,
-            "epsilon": _BATCH_NORM_EPSILON,
-            "fused": True,
-            "trainable": training,
-            "training": training
-        }
-
-        if const_inits:
-            batch_norm_args.update({
-                "beta_initializer": tf.initializers.constant(biases, verify_shape=True),
-                "gamma_initializer": tf.initializers.constant(scales, verify_shape=True),
-                "moving_mean_initializer": tf.initializers.constant(rolling_mean, verify_shape=True),
-                "moving_variance_initializer": tf.initializers.constant(rolling_variance, verify_shape=True)
-            })
-
-        net = tf.layers.batch_normalization(net, name=scope+'/BatchNorm', **batch_norm_args)
-
-    if activation:
-        net = activation(net, scope+'/Activation')
-
+    net = tf.keras.layers.Input([width, width, 1])
     return net
 
 
@@ -122,7 +41,32 @@ def cfg_group_convolutional(B, H, W, C, net, param, weights_walker, stack, outpu
 def cfg_convolutional(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose):
     groups = int(param.get('groups',1))
     if groups > 1:
-        return cfg_group_convolutional(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose)
+        pass
+        # return cfg_group_convolutional(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose)
+    del groups
+    
+    batch_normalize = 'batch_normalize' in param
+    size = int(param['size'])
+    filters = int(param['filters'])
+    stride = int(param['stride'])
+    pad = 'same' if param['pad'] == '1' else 'valid'
+    activation = None
+    weight_size = C * filters * size * size
+    if "activation" in param:
+        activation = _activation_dict.get(param['activation'], None)
+
+    # 不在这里读取参数，仅仅构建网络
+    net = common.convolutional(input_layer=net,filters_shape=[size,size,C,filters],
+            bn = batch_normalize, downsample = True if stride > 1 else False,
+            activate= True if activation else False,activate_type=activation)
+
+    return net
+
+def cfg_convolutional_org(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose):
+    groups = int(param.get('groups',1))
+    if groups > 1:
+        pass
+        # return cfg_group_convolutional(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose)
     del groups
     
     batch_normalize = 'batch_normalize' in param
@@ -186,6 +130,7 @@ def cfg_convolutional(B, H, W, C, net, param, weights_walker, stack, output_inde
         net = activation(net, scope+'/Activation')
 
     return net
+
 
 
 def cfg_dropout(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose):
@@ -256,6 +201,13 @@ def cfg_yolo(B, H, W, C, net, param, weights_walker, stack, output_index, scope,
 def cfg_upsample(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose):
     stride = int(param['stride'])
     assert stride == 2
+    net = common.upsample(net)
+    return net
+
+
+def cfg_upsample_org(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose):
+    stride = int(param['stride'])
+    assert stride == 2
 
     net = tf.image.resize_nearest_neighbor(net, (H * stride, W * stride), name=scope)
     return net
@@ -288,6 +240,7 @@ _cfg_layer_dict = {
     "softmax": cfg_softmax
 }
 
+# net 是当前的网络，可以获得当前的通道数
 # output_index 是yolo层所在的位置
 def get_cfg_layer(net, layer_name, param, weights_walker, stack, output_index,
                   scope=None, training=False, const_inits=True, verbose=True):
