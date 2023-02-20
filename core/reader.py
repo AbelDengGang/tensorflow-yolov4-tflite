@@ -9,6 +9,7 @@ import ctypes
 import numpy as np
 
 import tensorflow as tf
+from cfg_layer import get_cfg_layer
 
 
 class WeightsReader:
@@ -112,3 +113,39 @@ class CFGReader:
 
     def __iter__(self):
         return self.get_block()
+
+
+def parse_net(num_layers, cfg, weights, training=False, const_inits=True, verbose=True):
+    net = None
+    counters = {}
+    stack = []
+    cfg_walker = CFGReader(cfg)
+    weights_walker = WeightsReader(weights)
+    print("weights_walker:",weights_walker)
+    output_index = []
+    num_layers = int(num_layers)
+
+    for ith, layer in enumerate(cfg_walker):
+        if ith > num_layers and num_layers > 0:
+            break
+        layer_name = layer['name']
+        counters.setdefault(layer_name, 0)
+        counters[layer_name] += 1
+        scope = "{}{}{}".format('yolo', layer['name'], counters[layer_name])
+        net = get_cfg_layer(net, layer_name, layer, weights_walker, stack, output_index, scope,
+                            training=training, const_inits=const_inits, verbose=verbose)
+        # Exclude `net` layer from stack (for correct layer indexing)
+        # See https://github.com/jinyu121/DW2TF/issues/30
+        # See https://github.com/AlexeyAB/darknet/issues/487#issuecomment-374902735
+        if layer['name'] != 'net':
+            stack.append(net)
+        if verbose:
+            print(ith, net)
+
+    if verbose:        
+        for ind in output_index:
+            print("=> Output layer: ", stack[ind])
+
+
+if __name__ == '__main__':
+    parse_net(num_layers=0,cfg='../data/yolov3.cfg',weights='../data/yolov3.weights')

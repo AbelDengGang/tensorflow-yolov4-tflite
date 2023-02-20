@@ -7,7 +7,7 @@ from __future__ import print_function
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 
-from layer.reorg_layer import reorg_layer
+from reorg_layer import reorg_layer
 
 # From Darknet
 _LEAKY_RELU_ALPHA = 0.1
@@ -288,7 +288,7 @@ _cfg_layer_dict = {
     "softmax": cfg_softmax
 }
 
-
+# output_index 是yolo层所在的位置
 def get_cfg_layer(net, layer_name, param, weights_walker, stack, output_index,
                   scope=None, training=False, const_inits=True, verbose=True):
     B, H, W, C = [None, None, None, None] if net is None else net.shape.as_list()
