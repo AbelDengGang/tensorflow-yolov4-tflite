@@ -88,6 +88,7 @@ class CFGReader:
                 # 读不到数据，那么就通知enumerate退出迭代。
                 # 可能早期的版本 enumerate 可以自己捕获 StopIteration ，所以让他抛出异常也可以运行下去
                 # 3.8版本 enumerate 不能自己捕获 StopIteration，会导致程序退出。所以这里要明确的break才行 
+                yield (obj)
                 break
 
             #print("line:",line)
