@@ -145,9 +145,10 @@ def parse_net(num_layers, cfg, weights, training=False, const_inits=True, verbos
 
     output_layer = []
     if verbose:        
-        for ind in output_index:
+        for ind,param in enumerate(output_index):
             print("=> Output layer: ", stack[ind])
-            output_layer.append(stack[ind])
+            print("=> Output param: ", param)
+            output_layer.append((stack[ind],param))
     return net,output_layer
 
 

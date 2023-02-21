@@ -62,8 +62,9 @@ def cfg_convolutional(B, H, W, C, net, param, weights_walker, stack, output_inde
                                   filters=filters,
                                   weight_size=weight_size,
                                   batch_normalize=batch_normalize)
+    # tensor shape in tensorflow is [size,size,channel,filters]
     weights = weights.reshape(filters, C, size, size).transpose([2, 3, 1, 0])
-
+    # print(weights.shape)
     conv_args = {
         "filters": filters,
         "kernel_size": size,
@@ -253,7 +254,7 @@ def cfg_shortcut(B, H, W, C, net, param, weights_walker, stack, output_index, sc
 
 
 def cfg_yolo(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose):
-    output_index.append(len(stack) - 1)
+    output_index.append(((len(stack) - 1),param))
     return net
 
 
