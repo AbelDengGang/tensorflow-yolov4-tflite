@@ -142,9 +142,12 @@ def parse_net(num_layers, cfg, weights, training=False, const_inits=True, verbos
         if verbose:
             print(ith, net)
 
+    output_layer = []
     if verbose:        
         for ind in output_index:
             print("=> Output layer: ", stack[ind])
+            output_layer.append(stack[ind])
+    return net,output_layer
 
 
 if __name__ == '__main__':

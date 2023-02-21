@@ -59,7 +59,7 @@ def cfg_convolutional(B, H, W, C, net, param, weights_walker, stack, output_inde
     net = common.convolutional(input_layer=net,filters_shape=[size,size,C,filters],
             bn = batch_normalize, downsample = True if stride > 1 else False,
             activate= True if activation else False,activate_type=activation)
-
+    
     return net
 
 def cfg_convolutional_org(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose):
@@ -140,6 +140,16 @@ def cfg_dropout(B, H, W, C, net, param, weights_walker, stack, output_index, sco
 
 
 def cfg_maxpool(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose):
+
+    ksize = int(param['size'])
+    stride = int(param['stride'])
+    net = tf.nn.max_pool(net, ksize=ksize, padding='SAME', strides=stride)
+
+    return net
+
+
+
+def cfg_maxpool_org(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose):
     pool_args = {
         "pool_size": int(param['size']),
         "strides": int(param['stride']),
@@ -230,7 +240,7 @@ _cfg_layer_dict = {
     "net": cfg_net,
     "convolutional": cfg_convolutional,
     "maxpool": cfg_maxpool,
-    "avgpool": cfg_avgpool,
+    # "avgpool": cfg_avgpool,
     "route": cfg_route,
     "reorg": cfg_reorg,
     "shortcut": cfg_shortcut,
