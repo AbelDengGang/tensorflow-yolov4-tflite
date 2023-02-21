@@ -33,7 +33,7 @@ def cfg_net(B, H, W, C, net, param, weights_walker, stack, output_index, scope, 
     width = int(param["width"])
     height = int(param["height"])
     channels = int(param["channels"])
-    net = tf.keras.layers.Input([width, width, 1])
+    net = tf.keras.layers.Input([width, width, channels])
     return net
 
 
@@ -55,12 +55,61 @@ def cfg_convolutional(B, H, W, C, net, param, weights_walker, stack, output_inde
     if "activation" in param:
         activation = _activation_dict.get(param['activation'], None)
 
-    # 不在这里读取参数，仅仅构建网络
-    net = common.convolutional(input_layer=net,filters_shape=[size,size,C,filters],
-            bn = batch_normalize, downsample = True if stride > 1 else False,
-            activate= True if activation else False,activate_type=activation)
-    
+
+
+    biases, scales, rolling_mean, rolling_variance, weights = \
+        weights_walker.get_weight(param['name'],
+                                  filters=filters,
+                                  weight_size=weight_size,
+                                  batch_normalize=batch_normalize)
+    weights = weights.reshape(filters, C, size, size).transpose([2, 3, 1, 0])
+
+    conv_args = {
+        "filters": filters,
+        "kernel_size": size,
+        "strides": stride,
+        "activation": None,
+        "padding": pad
+    }
+
+    if const_inits:
+        conv_args.update({
+            "kernel_initializer": tf.initializers.constant(weights),
+            "bias_initializer": tf.initializers.constant(biases)
+        })
+
+    if batch_normalize:
+        conv_args.update({
+            "use_bias": False
+        })
+
+    net = tf.keras.layers.Conv2D(name=scope, **conv_args)(net)
+
+    if batch_normalize:
+        batch_norm_args = {
+            "momentum": _BATCH_NORM_MOMENTUM,
+            "epsilon": _BATCH_NORM_EPSILON,
+            "fused": True,
+            "trainable": training,
+            # "training": training
+        }
+
+        if const_inits:
+            batch_norm_args.update({
+                "beta_initializer": tf.initializers.constant(biases),
+                "gamma_initializer": tf.initializers.constant(scales),
+                "moving_mean_initializer": tf.initializers.constant(rolling_mean),
+                "moving_variance_initializer": tf.initializers.constant(rolling_variance)
+            })
+
+        net = tf.keras.layers.BatchNormalization(name=scope+'/BatchNorm', **batch_norm_args)(net,training)
+
+    if activation:
+        net = activation(net, scope+'/Activation')
+
     return net
+
+
 
 def cfg_convolutional_org(B, H, W, C, net, param, weights_walker, stack, output_index, scope, training, const_inits, verbose):
     groups = int(param.get('groups',1))
