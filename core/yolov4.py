@@ -363,5 +363,69 @@ def compute_loss(pred, conv, label, bboxes, STRIDES, NUM_CLASS, IOU_LOSS_THRESH,
 
 
 
+def test_tf(image_data,input_size,model,FLAGS):
+
+    # image_data = utils.image_preprocess(np.copy(original_image), [input_size, input_size])
+    # image_data = image_data[np.newaxis, ...].astype(np.float32)
+
+    images_data = []
+    for i in range(1):
+        images_data.append(image_data)
+    images_data = np.asarray(images_data).astype(np.float32)
+
+    # saved_model_loaded = tf.saved_model.load(FLAGS.weights, tags=[tag_constants.SERVING])
+    # infer = saved_model_loaded.signatures['serving_default']
+    infer = model
+    batch_data = tf.constant(images_data)
+    pred_bbox = infer(batch_data)
+    for key, value in pred_bbox.items():
+        boxes = value[:, :, 0:4]
+        pred_conf = value[:, :, 4:]
+
+    boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
+        boxes=tf.reshape(boxes, (tf.shape(boxes)[0], -1, 1, 4)),
+        scores=tf.reshape(
+            pred_conf, (tf.shape(pred_conf)[0], -1, tf.shape(pred_conf)[-1])),
+        max_output_size_per_class=50,
+        max_total_size=50,
+        iou_threshold=FLAGS.iou,
+        score_threshold=FLAGS.score
+    )
+    pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
+
+    return pred_bbox
+
+
+def test_tflite(image_data,input_size,model,FLAGS):
+
+
+    images_data = []
+    for i in range(1):
+        images_data.append(image_data)
+    images_data = np.asarray(images_data).astype(np.float32)
+
+    input_details = model.get_input_details()
+    output_details = model.get_output_details()
+    print(input_details)
+    print(output_details)
+    model.set_tensor(input_details[0]['index'], images_data)
+    model.invoke()
+    pred = [model.get_tensor(output_details[i]['index']) for i in range(len(output_details))]
+    if FLAGS.model == 'yolov3' and FLAGS.tiny == True:
+        boxes, pred_conf = filter_boxes(pred[1], pred[0], score_threshold=0.25, input_shape=tf.constant([input_size, input_size]))
+    else:
+        boxes, pred_conf = filter_boxes(pred[0], pred[1], score_threshold=0.25, input_shape=tf.constant([input_size, input_size]))
+
+    boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
+        boxes=tf.reshape(boxes, (tf.shape(boxes)[0], -1, 1, 4)),
+        scores=tf.reshape(
+            pred_conf, (tf.shape(pred_conf)[0], -1, tf.shape(pred_conf)[-1])),
+        max_output_size_per_class=50,
+        max_total_size=50,
+        iou_threshold=FLAGS.iou,
+        score_threshold=FLAGS.score
+    )
+    pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
+    return pred_bbox
 
 
