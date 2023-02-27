@@ -196,26 +196,51 @@ def decode_tf(conv_output, output_size, NUM_CLASS, STRIDES, ANCHORS, i=0, XYSCAL
     conv_output = tf.reshape(conv_output,
                              (batch_size, output_size, output_size, 3, 5 + NUM_CLASS))
 
+    # 每个grid上都有 (2, 2, 1, NUM_CLASS) 个tensor，通过split以后，切分成4个tensor，每个tensor对应的是每个grid上的预测框的位置，宽高，置信度，每个类物体的置信度
+    # 比如原来的是(52,52,3,85),split以后就是为conv_raw_dxdy：(52,52,3,2)，conv_raw_dwdh(52,52,3,2)，conv_raw_conf：(52,52,3,1)conv_raw_prob(52,52,3,80)
     conv_raw_dxdy, conv_raw_dwdh, conv_raw_conf, conv_raw_prob = tf.split(conv_output, (2, 2, 1, NUM_CLASS),
                                                                           axis=-1)
 
+    # 生成一个坐标矩阵列表，比如tf.meshgrid(tf.range(output_size),tf.range(output_size)) 就是生成 下面这种矩阵，每个点的值就是x的val
+    #[ [【0，1，2】, # 第一个坐标矩阵
+    # 【0，1，2】,
+    # 【0，1，2】], 
+    # [【0，0，0】,  # 第二个坐标矩阵
+    # 【1，1，1】,
+    # 【2，2，2】]],
     xy_grid = tf.meshgrid(tf.range(output_size), tf.range(output_size))
-    xy_grid = tf.expand_dims(tf.stack(xy_grid, axis=-1), axis=2)  # [gx, gy, 1, 2]
-    xy_grid = tf.tile(tf.expand_dims(xy_grid, axis=0), [batch_size, 1, 1, 3, 1])
 
+    # stack: 在第一个tensor的列维度上增加一个维度，然后把第二个填进来
+    # 1 扩大维度
+    # [0，1，2]   -> [[0,x],[1,x],[2,x]]
+    # [0，1，2]   -> [[0,x],[1,x],[2,x]]
+    # [0，1，2]   -> [[0,x],[1,x],[2,x]]
+
+    # 2 填充 ，生成grid上每个点的坐标偏移量
+    # [[0,x],[1,x],[2,x]] -> [[0,0],[1,0],[2,0]]
+    # [[0,x],[1,x],[2,x]] -> [[0,1],[1,1],[2,1]]
+    # [[0,x],[1,x],[2,x]] -> [[0,2],[1,2],[2,2]]
+
+    xy_grid = tf.expand_dims(tf.stack(xy_grid, axis=-1), axis=2)  # [gx, gy, 1, 2]
+
+    # tf.tile 在指定维度上复制 在第0维度上复制batch_size次，在第3维度上复制3次
+    xy_grid = tf.tile(tf.expand_dims(xy_grid, axis=0), [batch_size, 1, 1, 3, 1]) # (1, gx, gy, 1, 2) -> (batch_size, gx, gy, 3, 2)
     xy_grid = tf.cast(xy_grid, tf.float32)
 
+    # 首先计算每个检测框在自己grid内的位置，然后再加上grid的偏移量，这样可以得到每个框在实际图（缩小了）中的位置
     pred_xy = ((tf.sigmoid(conv_raw_dxdy) * XYSCALE[i]) - 0.5 * (XYSCALE[i] - 1) + xy_grid) * \
               STRIDES[i]
+    # 计算检测框的大小
     pred_wh = (tf.exp(conv_raw_dwdh) * ANCHORS[i])
+    # 把位置和大小拼接起来
     pred_xywh = tf.concat([pred_xy, pred_wh], axis=-1)
 
     pred_conf = tf.sigmoid(conv_raw_conf)
     pred_prob = tf.sigmoid(conv_raw_prob)
 
     pred_prob = pred_conf * pred_prob
-    pred_prob = tf.reshape(pred_prob, (batch_size, -1, NUM_CLASS))
-    pred_xywh = tf.reshape(pred_xywh, (batch_size, -1, 4))
+    pred_prob = tf.reshape(pred_prob, (batch_size, -1, NUM_CLASS)) # -> (batch_size,gx * gy * 3, NUM_CLASS)
+    pred_xywh = tf.reshape(pred_xywh, (batch_size, -1, 4))         # -> (batch_size,gx * gy * 3, 4)
 
     return pred_xywh, pred_prob
     # return tf.concat([pred_xywh, pred_conf, pred_prob], axis=-1)

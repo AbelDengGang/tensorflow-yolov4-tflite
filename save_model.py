@@ -1,4 +1,6 @@
 # coding=utf-8
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"]='3'   # 减少日志
 import tensorflow as tf
 # 必须要有这句话，否则会报错： tensorflow.python.framework.errors_impl.NotFoundError: No algorithm worked! [Op:Conv2D]
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
