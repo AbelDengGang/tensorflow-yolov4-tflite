@@ -376,9 +376,16 @@ def test_tf(image_data,input_size,model,FLAGS):
     # saved_model_loaded = tf.saved_model.load(FLAGS.weights, tags=[tag_constants.SERVING])
     # infer = saved_model_loaded.signatures['serving_default']
     infer = model
+    # print("model:",type(model))
     batch_data = tf.constant(images_data)
+    # print("images_data:",images_data)
+    # 如果 infer 是 <class 'tensorflow.python.saved_model.load._WrapperFunction'> ，返回dict
+    # 如果 infer 是 model 返回 tensor
     pred_bbox = infer(batch_data)
+    # print("pred_bbox:",type(pred_bbox))
     for key, value in pred_bbox.items():
+        # print("key:",key)
+        # print("value.shape: ",value.shape)
         boxes = value[:, :, 0:4]
         pred_conf = value[:, :, 4:]
 

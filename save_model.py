@@ -4,7 +4,8 @@ import tensorflow as tf
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 if len(physical_devices) > 0:
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
+from tensorflow.python.saved_model import tag_constants
+import numpy as np
 from absl import app, flags, logging
 from absl.flags import FLAGS
 from core.yolov4 import YOLO, decode, filter_boxes,test_tflite,test_tf
@@ -20,6 +21,8 @@ flags.DEFINE_string('framework', 'tf', 'define what framework do you want to con
 flags.DEFINE_string('model', 'yolov4', 'yolov3 or yolov4')
 flags.DEFINE_boolean('test', False, 'test model after convert')
 flags.DEFINE_string('image', './data/kite.jpg', 'path to input image')
+flags.DEFINE_float('iou', 0.45, 'iou threshold')
+flags.DEFINE_float('score', 0.25, 'score threshold')
 
 def save_tf():
   STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(FLAGS)
@@ -54,9 +57,9 @@ def save_tf():
     boxes, pred_conf = filter_boxes(pred_bbox, pred_prob, score_threshold=FLAGS.score_thres, input_shape=tf.constant([FLAGS.input_size, FLAGS.input_size]))
     pred = tf.concat([boxes, pred_conf], axis=-1)
   model = tf.keras.Model(input_layer, pred)
+
   utils.load_weights(model, FLAGS.weights, FLAGS.model, FLAGS.tiny)
   model.summary()
-  model.save(FLAGS.output)
   
   if FLAGS.test:
     import cv2
@@ -69,7 +72,14 @@ def save_tf():
     image_data = image_data / 255.
 
     if FLAGS.framework == 'tf':
-      pred_bbox = test_tf(image_data,input_size,model,FLAGS)
+      # test_tf 中， 
+      # 如果 infer 是 <class 'tensorflow.python.saved_model.load._WrapperFunction'> ，返回dict
+      # 如果 infer 是 model 返回 tensor
+      # 原来的代码只对dic数据进行解析，因此需要通过先保存再读取的方法来把model转成_WrapperFunction
+      model.save(FLAGS.output)
+      saved_model_loaded = tf.saved_model.load(FLAGS.output, tags=[tag_constants.SERVING])
+      infer = saved_model_loaded.signatures['serving_default']
+      pred_bbox = test_tf(image_data,input_size,infer,FLAGS)
 
     image = utils.draw_bbox(original_image, pred_bbox)
     # image = utils.draw_bbox(image_data*255, pred_bbox)
@@ -77,7 +87,10 @@ def save_tf():
     image.show()
     image = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2RGB)
 
-    cv2.imwrite(FLAGS.output, image)
+    # cv2.imwrite(FLAGS.output, image)
+  else:
+    model.save(FLAGS.output)
+
 
 
 def main(_argv):
