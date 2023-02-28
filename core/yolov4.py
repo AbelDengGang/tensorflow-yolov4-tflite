@@ -228,10 +228,12 @@ def decode_tf(conv_output, output_size, NUM_CLASS, STRIDES, ANCHORS, i=0, XYSCAL
     xy_grid = tf.cast(xy_grid, tf.float32)
 
     # 首先计算每个检测框在自己grid内的位置，然后再加上grid的偏移量，这样可以得到每个框在实际图（缩小了）中的位置
+    # STRIDES[i] 是这一层YOLO相对于原始图像的缩小比例。实际上 STRIDES[i] * output_size = 原始大小
     pred_xy = ((tf.sigmoid(conv_raw_dxdy) * XYSCALE[i]) - 0.5 * (XYSCALE[i] - 1) + xy_grid) * \
               STRIDES[i]
     # 计算检测框的大小
     pred_wh = (tf.exp(conv_raw_dwdh) * ANCHORS[i])
+
     # 把位置和大小拼接起来
     pred_xywh = tf.concat([pred_xy, pred_wh], axis=-1)
 

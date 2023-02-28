@@ -9,7 +9,10 @@ import ctypes
 import numpy as np
 
 import tensorflow as tf
-from cfg_layer import get_cfg_layer
+if __name__ == '__main__':
+    from cfg_layer import get_cfg_layer
+else:
+    from core.cfg_layer import get_cfg_layer
 
 
 class WeightsReader:
@@ -116,7 +119,7 @@ class CFGReader:
         return self.get_block()
 
 
-def parse_net(num_layers, cfg, weights, training=False, const_inits=True, verbose=True):
+def parse_net(cfg, weights,num_layers=0, training=False, const_inits=True, verbose=True):
     net = None
     counters = {}
     stack = []
@@ -140,6 +143,9 @@ def parse_net(num_layers, cfg, weights, training=False, const_inits=True, verbos
         # See https://github.com/AlexeyAB/darknet/issues/487#issuecomment-374902735
         if layer['name'] != 'net':
             stack.append(net)
+        else:
+            global_net_cfg = layer
+            input_layer = net
         if verbose:
             print(ith, net)
 
@@ -149,7 +155,7 @@ def parse_net(num_layers, cfg, weights, training=False, const_inits=True, verbos
             print("=> Output layer: ", stack[ind])
             print("=> Output param: ", param)
             output_layer.append((stack[ind],param))
-    return net,output_layer
+    return global_net_cfg,input_layer,output_layer
 
 
 if __name__ == '__main__':
